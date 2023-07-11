@@ -6,7 +6,7 @@ package main
 // Input is drag-and-drop: drag the .csv file onto the .exe
 // Most things that are likely to change can be edited in the constants section before main()
 
-//Current as of 01 July 2023
+//Current as of July 2023
 
 import (
 	"encoding/csv"
@@ -60,16 +60,18 @@ func main() {
 		end()
 	}
 
-	// fileCount := 0
 	for _, currFile := range args {
 		// fileCount = fileCount + 1
 		// fileCountStr := strconv.Itoa(fileCount)
 		// fmt.Println("Processing " + filepath.Base(currFile) + " (" + fileCountStr + " of " + numFilesStr + ")…")
-		process(currFile)
+		i := -1
+		for i != 0 {
+			i = process(currFile)
+		}
 	}
 }
 
-func process(currFile string) {
+func process(currFile string) int {
 	file, err := os.Open(currFile)
 	if err != nil {
 		panic(err)
@@ -84,7 +86,6 @@ func process(currFile string) {
 	header, err := reader.Read()
 	if err == io.EOF {
 		log.Println("File appears to be empty.")
-		//Break?
 	} else if err != nil {
 		panic(err)
 	}
@@ -150,8 +151,19 @@ func process(currFile string) {
 	fmt.Println("Processed ", currLnNo, "lines")
 	fmt.Println("=============================")
 	fmt.Println("TOTAL:", strconv.FormatFloat(runningTotal, 'f', 2, 64))
-	fmt.Println("\nPress the Enter Key to end")
-	fmt.Scanln()
+	fmt.Println()
+
+	fmt.Print("Enter [c] to continue with new dates or enter any other key to exit: ")
+	var key string
+	fmt.Scanln(&key)
+	switch key {
+	case "c":
+		fmt.Println("=============================")
+		fmt.Println()
+		return -1
+	default:
+		return 0
+	}
 }
 
 // Gets the index for a string (i.e. for the header row)
@@ -174,59 +186,79 @@ func containsFee(desc string) bool {
 	return false
 }
 
-func checkdate(string) {
-
-}
-
 func end() {
-	fmt.Println("Press ENTER to exit")
+	fmt.Println("Press any key to exit")
 	fmt.Scanln()
 }
 
 // Parse user-entered times
 func getDates() (time.Time, time.Time) {
-	var usrDate1, usrDate2 string
 
 	//Ask for beginning date
 	fmt.Println("Enter the beginning and ending dates to process using the format yyyy-mm-dd.")
-	fmt.Print("Beginning date: ")
-	fmt.Scanln(&usrDate1)
-	date1, err := time.Parse(dateEntry, usrDate1)
-
-	if err != nil {
-		fmt.Println("Date is invalid.")
-		end()
-	}
+	date1 := checkDate("Beginning Date: ")
 
 	//Figure out default end dates, then ask.
 	mDate := time.Date(date1.Year(), date1.Month()+1, 0, 0, 0, 0, 0, date1.Location()) //Last day of the month; i.e. 00 Feb == 31 Jan, etc.
-	var qDate2 time.Time
+	var qDate time.Time
 	switch {
 	case date1.Day() <= 15:
-		qDate2 = time.Date(date1.Year(), date1.Month(), 15, 0, 0, 0, 0, date1.Location())
+		qDate = time.Date(date1.Year(), date1.Month(), 15, 0, 0, 0, 0, date1.Location())
 	case date1.Day() >= 16:
-		qDate2 = mDate
+		qDate = mDate
 	}
-
 	fmt.Println("Enter the ending date. You can also enter 'q' to calculate to the end of the quinzaine or 'm' to calculate to the end of the month.")
-	fmt.Print("Ending date: ")
-	fmt.Scanln(&usrDate2)
+
+	//Was supposed to use checkDate, but
+	i := -1
+	var usrDate string
 	var date2 time.Time
-	switch usrDate2 {
-	case "q":
-		date2 = qDate2
-	case "m":
-		date2 = mDate
-	default:
-		date2, _ = time.Parse(dateEntry, usrDate2)
-		if err != nil {
-			fmt.Println("Date is invalid.")
-			end()
+	for i != 0 {
+		fmt.Print("Ending date: ")
+		fmt.Scanln(&usrDate)
+		switch usrDate {
+		case "q":
+			date2 = qDate
+			i = 0
+		case "m":
+			date2 = mDate
+			i = 0
+		default:
+			rtDate, err := time.Parse(dateEntry, usrDate)
+			switch err != nil {
+			case true:
+				fmt.Println("Entered date is invalid, please try again.")
+				i = -1
+			case false:
+				date2 = rtDate
+				i = 0
+			}
 		}
 	}
 
 	return date1, date2
 }
+
+// Asks the user to enter a date using the supplied prompt and returns it as a time.Time object
+// If there is an entry error, it will reprompt the user to reenter it until a valid date is entered.
+func checkDate(prompt string) time.Time {
+	var usrDate string
+	i := -1
+	for i != 0 {
+		fmt.Print(prompt)
+		fmt.Scanln(&usrDate)
+		rtDate, err := time.Parse(dateEntry, usrDate)
+		switch err != nil {
+		case true:
+			fmt.Println("Entered date is invalid, please try again.")
+			i = -1
+		case false:
+			return rtDate
+		}
+	}
+	return time.Now() //Do not understand why we need a return here since it will loop until it gets a correct date in the switch
+}
+
 func writeHeader() {
 	fmt.Printf("\n")
 	fmt.Println("  ██╗ ██╗ ██╗   ██╗███╗   ██╗██╗██████╗  █████╗ ███╗   ██╗██╗  ██╗███████╗██████╗  █████╗ ████████╗ ██████╗ ██████╗ ")
@@ -235,4 +267,5 @@ func writeHeader() {
 	fmt.Println(" ████████╗██║   ██║██║╚██╗██║██║██╔══██╗██╔══██║██║╚██╗██║██╔═██╗ ██╔══╝  ██╔══██╗██╔══██║   ██║   ██║   ██║██╔══██╗")
 	fmt.Println(" ╚██╔═██╔╝╚██████╔╝██║ ╚████║██║██████╔╝██║  ██║██║ ╚████║██║  ██╗███████╗██║  ██║██║  ██║   ██║   ╚██████╔╝██║  ██║")
 	fmt.Println("  ╚═╝ ╚═╝  ╚═════╝ ╚═╝  ╚═══╝╚═╝╚═════╝ ╚═╝  ╚═╝╚═╝  ╚═══╝╚═╝  ╚═╝╚══════╝╚═╝  ╚═╝╚═╝  ╚═╝   ╚═╝    ╚═════╝ ╚═╝  ╚═╝")
+	fmt.Printf("\n")
 }
