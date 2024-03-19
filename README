@@ -1,0 +1,26 @@
+This is a simple .csv parser for Unibank .csv files to quickly calculate fees for a given time period.
+
+To find the .csv file, click the account you want the file for, You should be on the RELEVE DE TRANSACTIONS RECENTES tab by default.
+Click the ↥ (Télécharger format CSV) from the  tab for the account and save the .csv file.
+
+Choosing the file to process is easiest with drag-and-drop: drag the .csv file onto the .exe (or a shortcut). You can also select the file if you do not do this.
+You will be asked for beginning and ending dates for the time period you want to calculate.
+
+Most parameters are constants at the top of the file. You should not need to change them but it is very straightforward to do so if neccesary.
+
+COLUMNS
+The relevant columns in the .csv file are the transaction date, description, and debit columns. The values of these strings should match the labels at the top of the Unibank file. Only change these if the Unibank file output format changes.
+
+DATES
+The formats for the dates are controlled by constants. Before changing these make sure you understand how Go interprets date formats. See https://go.dev/src/time/format.go or https://www.google.com/search?q=golang+date+format+explained
+
+dateFormat refers to the format of the dates read from the Unibank .csv file. Note that currently Unibank outputs the dates in English, not French (e.g. 01-FEB-24 instead of 01-FEV-24). Other Unibank output .csv files use different date formats. This may need to be updated in the future.
+
+dateEntry only applies to how user-entered dates are interpreted. You can change this to whatever format you like.
+
+FEES
+The list of items considered fees is constructed by the initFeeList() function. Any strings added here should be as broad (i.e. short) as possible without catching any false positives (e.g. "taxes" catches everything labelled "taxes" but "tax" might catch "taxi").
+
+Note that this will catch anything in the Description field, including memos you have entered for transactions on Unibank's website. For example, if you regularly transfer money to someone with the memo "frais légales," it will be counted. You may want to consider modifying the fee list to avoid this or change the memo wording in the future. An ignore list may be possible in the future.
+
+The fee list has served very well since 2018, but if you find a fee that isn't caught or catches false positives and is universally applicable (i.e. not caused by your unique situation), please file an issue.

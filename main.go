@@ -17,6 +17,9 @@ import (
 	"strconv"
 	"strings"
 	"time"
+
+	"github.com/harry1453/go-common-file-dialog/cfd"
+	"github.com/harry1453/go-common-file-dialog/cfdutil"
 )
 
 // Constants for the file headers. Change these if the headers change in the output files
@@ -40,6 +43,8 @@ func initFeeList() []string {
 	return []string{"commis.", "frais", "taxes", "timbre", "commissions"} //Add new words here as needed
 }
 
+var ignoreList []string = nil
+
 func main() {
 
 	writeHeader()
@@ -48,27 +53,24 @@ func main() {
 	args := os.Args[1:]
 	argct := len(args)
 
-	//Check number of args received to make sure we received exactly one file.
-	//Ideally no args would open a file open ui, but there's nothing in the standard library and we're trying to avoid going outside that
-	//Could add option to process multiple files, but would probably be confusing anyway
-	switch {
-	case argct < 1:
-		fmt.Println("This program is designed for drag-and-drop. Please drag the .csv file onto the program.")
-		end()
-	case argct > 1:
+	var file string
+
+	//Check if a file was supplied by drag and drop or open a file prompt
+	switch argct {
+	case 0:
+		file = openFile()
+	case 1:
+		file = args[0]
+	default:
 		fmt.Println("This program can only handle one file at a time.")
 		end()
 	}
 
-	for _, currFile := range args {
-		// fileCount = fileCount + 1
-		// fileCountStr := strconv.Itoa(fileCount)
-		// fmt.Println("Processing " + filepath.Base(currFile) + " (" + fileCountStr + " of " + numFilesStr + ")…")
-		i := -1
-		for i != 0 {
-			i = process(currFile)
-		}
+	i := -1
+	for i != 0 {
+		i = process(file)
 	}
+
 }
 
 func process(currFile string) int {
@@ -176,7 +178,7 @@ func getindex(row []string, seek string) int {
 	return -1
 }
 
-// Checks if the current slice contains a string inidcating a fee
+// Checks if the current slice contains a string indicating a fee
 func containsFee(desc string) bool {
 	for _, value := range feeList {
 		if strings.Contains(desc, value) {
@@ -189,14 +191,21 @@ func containsFee(desc string) bool {
 func end() {
 	fmt.Println("Press any key to exit")
 	fmt.Scanln()
+	os.Exit(0)
 }
 
 // Parse user-entered times
 func getDates() (time.Time, time.Time) {
+	var usrEntry string
+	var date1, date2 time.Time
 
 	//Ask for beginning date
 	fmt.Println("Enter the beginning and ending dates to process using the format yyyy-mm-dd.")
-	date1 := checkDate("Beginning Date: ")
+	fmt.Print("Beginning date: ")
+	//var usrDate1 string
+	fmt.Scanln(&usrEntry)
+	date1 = checkDate(usrEntry)
+	usrEntry = "" // clear user input
 
 	//Figure out default end dates, then ask.
 	mDate := time.Date(date1.Year(), date1.Month()+1, 0, 0, 0, 0, 0, date1.Location()) //Last day of the month; i.e. 00 Feb == 31 Jan, etc.
@@ -209,31 +218,17 @@ func getDates() (time.Time, time.Time) {
 	}
 	fmt.Println("Enter the ending date. You can also enter 'q' to calculate to the end of the quinzaine or 'm' to calculate to the end of the month.")
 
-	//Was supposed to use checkDate, but
-	i := -1
-	var usrDate string
-	var date2 time.Time
-	for i != 0 {
-		fmt.Print("Ending date: ")
-		fmt.Scanln(&usrDate)
-		switch usrDate {
-		case "q":
-			date2 = qDate
-			i = 0
-		case "m":
-			date2 = mDate
-			i = 0
-		default:
-			rtDate, err := time.Parse(dateEntry, usrDate)
-			switch err != nil {
-			case true:
-				fmt.Println("Entered date is invalid, please try again.")
-				i = -1
-			case false:
-				date2 = rtDate
-				i = 0
-			}
-		}
+	//Get ending date with special options
+	//var usrDate2 string
+	fmt.Print("Ending date: ")
+	fmt.Scanln(&usrEntry)
+	switch usrEntry {
+	case "q":
+		date2 = qDate
+	case "m":
+		date2 = mDate
+	default:
+		date2 = checkDate(usrEntry)
 	}
 
 	return date1, date2
@@ -241,22 +236,22 @@ func getDates() (time.Time, time.Time) {
 
 // Asks the user to enter a date using the supplied prompt and returns it as a time.Time object
 // If there is an entry error, it will reprompt the user to reenter it until a valid date is entered.
-func checkDate(prompt string) time.Time {
-	var usrDate string
+func checkDate(date string) time.Time {
+	var rtDate time.Time
+
 	i := -1
 	for i != 0 {
-		fmt.Print(prompt)
-		fmt.Scanln(&usrDate)
-		rtDate, err := time.Parse(dateEntry, usrDate)
-		switch err != nil {
-		case true:
-			fmt.Println("Entered date is invalid, please try again.")
+		var err error
+		rtDate, err = time.Parse(dateEntry, date)
+		if err != nil {
+			fmt.Print("Entered date is invalid, please try again: ")
+			fmt.Scanln(&date)
 			i = -1
-		case false:
-			return rtDate
+		} else {
+			i = 0
 		}
 	}
-	return time.Now() //Do not understand why we need a return here since it will loop until it gets a correct date in the switch
+	return rtDate
 }
 
 func writeHeader() {
@@ -268,4 +263,55 @@ func writeHeader() {
 	fmt.Println(" ╚██╔═██╔╝╚██████╔╝██║ ╚████║██║██████╔╝██║  ██║██║ ╚████║██║  ██╗███████╗██║  ██║██║  ██║   ██║   ╚██████╔╝██║  ██║")
 	fmt.Println("  ╚═╝ ╚═╝  ╚═════╝ ╚═╝  ╚═══╝╚═╝╚═════╝ ╚═╝  ╚═╝╚═╝  ╚═══╝╚═╝  ╚═╝╚══════╝╚═╝  ╚═╝╚═╝  ╚═╝   ╚═╝    ╚═════╝ ╚═╝  ╚═╝")
 	fmt.Printf("\n")
+}
+
+// Open a file selection prompt
+func openFile() string {
+	userprofile, _ := os.UserHomeDir() //This bypasses an error in cfd when calling %userprofile%
+	var (
+		file string
+		err  error
+	)
+
+	i := -1
+	for i != 0 {
+		file, err = cfdutil.ShowOpenFileDialog(cfd.DialogConfig{
+			Title: "Choose a File",
+			Role:  "ChooseFile",
+			FileFilters: []cfd.FileFilter{
+				{
+					DisplayName: "CSV Files (*.csv)",
+					Pattern:     "*.csv",
+				},
+				{
+					DisplayName: "All Files (*.*)",
+					Pattern:     "*.*",
+				},
+			},
+			DefaultFolder:           userprofile + `\Downloads\`,
+			SelectedFileFilterIndex: 0,
+			FileName:                "",
+			DefaultExtension:        "csv",
+		})
+
+		if err != nil {
+			if err == cfd.ErrorCancelled {
+				fmt.Print("File selection cancelled. Enter [o] to open a file or enter any other key to exit: ")
+				var key string
+				fmt.Scanln(&key)
+				switch key {
+				case "o":
+					i = -1
+				default:
+					os.Exit(0)
+				}
+			} else {
+				log.Fatal(err)
+			}
+		}
+
+		i = 0
+	}
+
+	return file
 }
