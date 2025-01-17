@@ -6,13 +6,12 @@ package main
 // Input is drag-and-drop: drag the .csv file onto the .exe
 // Most things that are likely to change can be edited in the constants section before main()
 
-//Current as of July 2023
+// Current as of July 2023
 
 import (
 	"encoding/csv"
 	"fmt"
 	"io"
-	"log"
 	"os"
 	"strconv"
 	"strings"
@@ -23,39 +22,37 @@ import (
 )
 
 // Constants for the file headers. Change these if the headers change in the output files
-const dateField string = "Date Trx"    //Transaction Date header
-const descField string = "Description" //Transaction Description header
-const amntField string = "Debit"       //Transaction Value header
+const dateField string = "Date Trx"    // Transaction Date header
+const descField string = "Description" // Transaction Description header
+const amntField string = "Debit"       // Transaction Value header
 
 // Date format constants
 // See "Golang time.Parse date format" if needing to change these
-const dateFormat = "02-Jan-06" //Format of the in-file date
-const dateEntry = "2006-01-02" //Format for user-entered dates; default is ISO
+const dateFormat = "02-Jan-06" // Format of the in-file date
+const dateEntry = "2006-01-02" // Format for user-entered dates; default is ISO
 
 // Verbose: Do you want it on?
 const verbose = false
 
 // Function for which words to check for that indicate fees
 // If new words are added, include as many characters as possible to reduce ambiguity
-var feeList []string = initFeeList()
+var feeList []string = []string{"commis.", "frais", "taxes", "timbre", "commission"} // Add new words here as needed
 
-func initFeeList() []string {
-	return []string{"commis.", "frais", "taxes", "timbre", "commissions"} //Add new words here as needed
-}
-
-var ignoreList []string = nil
+// A list of phrases to ignore if they would otherwise be counted as fees
+// New words added here should be as specific as possible
+var ignoreList []string = []string{} // Add new words here as needed
 
 func main() {
 
 	writeHeader()
 
-	//Get args from the os (i.e. Windows drag and drop)
+	// Get args from the os (i.e. Windows drag and drop)
 	args := os.Args[1:]
 	argct := len(args)
 
 	var file string
 
-	//Check if a file was supplied by drag and drop or open a file prompt
+	// Check if a file was supplied by drag and drop or open a file prompt
 	switch argct {
 	case 0:
 		file = openFile()
@@ -80,50 +77,50 @@ func process(currFile string) int {
 	}
 	defer file.Close()
 
-	//Run the file through the reader
+	// Run the file through the reader
 	reader := csv.NewReader(file)
-	reader.FieldsPerRecord = -1 //i.e. unspecified number of fields in case they change it
+	reader.FieldsPerRecord = -1 // i.e. unspecified number of fields in case they change it
 
-	//Read the header row
+	// Read the header row
 	header, err := reader.Read()
 	if err == io.EOF {
-		log.Println("File appears to be empty.")
+		fmt.Println("File appears to be empty.")
 	} else if err != nil {
 		panic(err)
 	}
 
-	//Get the index of the columns we need from the header
+	// Get the index of the columns we need from the header
 	colDate := getindex(header, dateField)
 	colDesc := getindex(header, descField)
 	colAmnt := getindex(header, amntField)
 
-	//Read the rest of the file
+	// Read the rest of the file
 	data, err := reader.ReadAll()
 	if err != nil {
 		fmt.Println("File read error. The file does not appear to be a *.csv file.")
 		end()
 	}
 
-	//Ask user for dates
+	// Ask user for dates
 	date1, date2 := getDates()
 	fmt.Println("Processing transactions from", date1.Format("02 Jan 2006"), "to", date2.Format("02 Jan 2006"))
 
-	var runningTotal float64 = 0 //Total of fee transactions found
-	currLnNo := 0                //Current line being processed
+	var runningTotal float64 = 0 // Total of fee transactions found
+	currLnNo := 0                // Current line being processed
 	for _, currLine := range data[1:] {
-		currLnNo += 1
+		currLnNo++
 		switch verbose {
 		case true:
 			fmt.Printf("\n")
-			fmt.Print("Processing line " + strconv.Itoa(currLnNo) + "… ")
+			fmt.Printf("Processing line %s ...", strconv.Itoa(currLnNo))
 		default:
 			fmt.Printf("\r")
-			fmt.Printf("Processing line " + strconv.Itoa(currLnNo) + "…")
+			fmt.Printf("Processing line %s ...", strconv.Itoa(currLnNo))
 		}
 
 		currDate, err := time.Parse(dateFormat, currLine[colDate])
 		if err != nil {
-			log.Println(err)
+			fmt.Println(err)
 			panic(err)
 		}
 
@@ -132,12 +129,12 @@ func process(currFile string) int {
 			if containsFee(currDesc) {
 				currAmnt, err := strconv.ParseFloat(currLine[colAmnt], 64)
 				if err != nil {
-					log.Println("Cannot process the amount on line", currLnNo)
+					fmt.Printf("Cannot process the amount on line %s", strconv.Itoa(currLnNo))
 					panic(err)
 				}
 				switch verbose {
 				case true:
-					fmt.Print(strconv.FormatFloat(currAmnt, 'f', 2, 64))
+					fmt.Print(strconv.FormatFloat(currAmnt, 'f', 2, 64) + "\n")
 				}
 				runningTotal += currAmnt
 			}
@@ -182,6 +179,11 @@ func getindex(row []string, seek string) int {
 func containsFee(desc string) bool {
 	for _, value := range feeList {
 		if strings.Contains(desc, value) {
+			for _, value := range ignoreList {
+				if strings.Contains(desc, value) {
+					return false
+				}
+			}
 			return true
 		}
 	}
@@ -199,16 +201,16 @@ func getDates() (time.Time, time.Time) {
 	var usrEntry string
 	var date1, date2 time.Time
 
-	//Ask for beginning date
+	// Ask for beginning date
 	fmt.Println("Enter the beginning and ending dates to process using the format yyyy-mm-dd.")
 	fmt.Print("Beginning date: ")
-	//var usrDate1 string
+	// var usrDate1 string
 	fmt.Scanln(&usrEntry)
 	date1 = checkDate(usrEntry)
 	usrEntry = "" // clear user input
 
-	//Figure out default end dates, then ask.
-	mDate := time.Date(date1.Year(), date1.Month()+1, 0, 0, 0, 0, 0, date1.Location()) //Last day of the month; i.e. 00 Feb == 31 Jan, etc.
+	// Figure out default end dates, then ask.
+	mDate := time.Date(date1.Year(), date1.Month()+1, 0, 0, 0, 0, 0, date1.Location()) // Last day of the month; i.e. 00 Feb == 31 Jan, etc.
 	var qDate time.Time
 	switch {
 	case date1.Day() <= 15:
@@ -218,8 +220,7 @@ func getDates() (time.Time, time.Time) {
 	}
 	fmt.Println("Enter the ending date. You can also enter 'q' to calculate to the end of the quinzaine or 'm' to calculate to the end of the month.")
 
-	//Get ending date with special options
-	//var usrDate2 string
+	// Get ending date with special options
 	fmt.Print("Ending date: ")
 	fmt.Scanln(&usrEntry)
 	switch usrEntry {
@@ -267,7 +268,7 @@ func writeHeader() {
 
 // Open a file selection prompt
 func openFile() string {
-	userprofile, _ := os.UserHomeDir() //This bypasses an error in cfd when calling %userprofile%
+	userprofile, _ := os.UserHomeDir() // This bypasses an error in cfd when calling %userprofile%
 	var (
 		file string
 		err  error
@@ -293,7 +294,6 @@ func openFile() string {
 			FileName:                "",
 			DefaultExtension:        "csv",
 		})
-
 		if err != nil {
 			if err == cfd.ErrorCancelled {
 				fmt.Print("File selection cancelled. Enter [o] to open a file or enter any other key to exit: ")
@@ -306,7 +306,8 @@ func openFile() string {
 					os.Exit(0)
 				}
 			} else {
-				log.Fatal(err)
+				fmt.Printf("Unknown error: %s\n", err)
+				fmt.Printf("If you are using a non-Windows operating system try draging and dropping the file onto the program instead")
 			}
 		}
 

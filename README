@@ -21,6 +21,8 @@ dateEntry only applies to how user-entered dates are interpreted. You can change
 FEES
 The list of items considered fees is constructed by the initFeeList() function. Any strings added here should be as broad (i.e. short) as possible without catching any false positives (e.g. "taxes" catches everything labelled "taxes" but "tax" might catch "taxi").
 
-Note that this will catch anything in the Description field, including memos you have entered for transactions on Unibank's website. For example, if you regularly transfer money to someone with the memo "frais légales," it will be counted. You may want to consider modifying the fee list to avoid this or change the memo wording in the future. An ignore list may be possible in the future.
+Note that this will catch anything in the Description field, including memos you have entered for transactions on Unibank's website. For example, if you regularly transfer money to someone with the memo "frais légales" it will be counted as a fee. To bypass this you can add phrases to the initIgnoreList() function similar to the fees. These should be as specific (i.e. long) as possible to ensure it only excludes exactly what you intend it to.
+
+Note that accented letters are different from each other; "frais légales" != "frais legales". If you use both versions of the word you will have to add both.
 
 The fee list has served very well since 2018, but if you find a fee that isn't caught or catches false positives and is universally applicable (i.e. not caused by your unique situation), please file an issue.
