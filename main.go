@@ -38,6 +38,8 @@ const verbose = false
 // If new words are added, include as many characters as possible to reduce ambiguity
 var feeList []string = []string{"commis.", "frais", "taxes", "timbre", "commission"} // Add new words here as needed
 
+var transferList []string = []string{"Achat et vente de devise"} // Add new words here as needed
+
 // A list of phrases to ignore if they would otherwise be counted as fees
 // New words added here should be as specific as possible
 var ignoreList []string = []string{} // Add new words here as needed
@@ -175,6 +177,20 @@ func getindex(row []string, seek string) int {
 	return -1
 }
 
+func containsTransfer(desc string) bool {
+	for _, value := range feeList {
+		if strings.Contains(desc, value) {
+			for _, value := range transferList {
+				if strings.Contains(desc, value) {
+					return false
+				}
+			}
+			return true
+		}
+	}
+	return false
+}
+
 // Checks if the current slice contains a string indicating a fee
 func containsFee(desc string) bool {
 	for _, value := range feeList {
@@ -273,6 +289,8 @@ func openFile() string {
 		file string
 		err  error
 	)
+
+	os.Setenv("winsymlink", "0")
 
 	i := -1
 	for i != 0 {

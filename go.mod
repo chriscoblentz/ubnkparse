@@ -1,6 +1,6 @@
 module ubnkparse
 
-go 1.22.1
+go 1.22.11
 
 require github.com/harry1453/go-common-file-dialog v1.2.0
 
