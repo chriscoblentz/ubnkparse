@@ -12,6 +12,7 @@ import (
 	"encoding/csv"
 	"fmt"
 	"io"
+	"log"
 	"os"
 	"strconv"
 	"strings"
@@ -24,7 +25,8 @@ import (
 // Constants for the file headers. Change these if the headers change in the output files
 const dateField string = "Date Trx"    // Transaction Date header
 const descField string = "Description" // Transaction Description header
-const amntField string = "Debit"       // Transaction Value header
+const debtField string = "Debit"       // Transaction Value header
+const crdtField string = "Credit"      // Transaction Value header
 
 // Date format constants
 // See "Golang time.Parse date format" if needing to change these
@@ -44,6 +46,13 @@ var transferList []string = []string{"Achat et vente de devise"} // Add new word
 // New words added here should be as specific as possible
 var ignoreList []string = []string{} // Add new words here as needed
 
+type transfer struct {
+	date       time.Time
+	amount     float64
+	exchange   float64
+	otherValue float64
+}
+
 func main() {
 
 	writeHeader()
@@ -57,10 +66,13 @@ func main() {
 	// Check if a file was supplied by drag and drop or open a file prompt
 	switch argct {
 	case 0:
+		log.Println("case 0")
 		file = openFile()
 	case 1:
+		log.Println("case 1")
 		file = args[0]
 	default:
+		log.Println("case default")
 		fmt.Println("This program can only handle one file at a time.")
 		end()
 	}
@@ -69,7 +81,6 @@ func main() {
 	for i != 0 {
 		i = process(file)
 	}
-
 }
 
 func process(currFile string) int {
@@ -94,7 +105,8 @@ func process(currFile string) int {
 	// Get the index of the columns we need from the header
 	colDate := getindex(header, dateField)
 	colDesc := getindex(header, descField)
-	colAmnt := getindex(header, amntField)
+	colDebt := getindex(header, debtField)
+	colCrdt := getindex(header, crdtField)
 
 	// Read the rest of the file
 	data, err := reader.ReadAll()
@@ -108,7 +120,8 @@ func process(currFile string) int {
 	fmt.Println("Processing transactions from", date1.Format("02 Jan 2006"), "to", date2.Format("02 Jan 2006"))
 
 	var runningTotal float64 = 0 // Total of fee transactions found
-	currLnNo := 0                // Current line being processed
+	var transfers []transfer
+	currLnNo := 0 // Current line being processed
 	for _, currLine := range data[1:] {
 		currLnNo++
 		switch verbose {
@@ -129,7 +142,7 @@ func process(currFile string) int {
 		if currDate.Compare(date1) >= 0 && currDate.Compare(date2) <= 0 {
 			currDesc := currLine[colDesc]
 			if containsFee(currDesc) {
-				currAmnt, err := strconv.ParseFloat(currLine[colAmnt], 64)
+				currAmnt, err := strconv.ParseFloat(currLine[colDebt], 64)
 				if err != nil {
 					fmt.Printf("Cannot process the amount on line %s", strconv.Itoa(currLnNo))
 					panic(err)
@@ -139,6 +152,32 @@ func process(currFile string) int {
 					fmt.Print(strconv.FormatFloat(currAmnt, 'f', 2, 64) + "\n")
 				}
 				runningTotal += currAmnt
+			}
+
+			if containsTransfer(currDesc) {
+				var currTransfer transfer
+				debitAmount, err := strconv.ParseFloat(currLine[colDebt], 64)
+				if err != nil {
+					fmt.Printf("Cannot process the amount on line %s", strconv.Itoa(currLnNo))
+					panic(err)
+				}
+				creditAmount, err := strconv.ParseFloat(currLine[colCrdt], 64)
+				if err != nil {
+					fmt.Printf("Cannot process the amount on line %s", strconv.Itoa(currLnNo))
+					panic(err)
+				}
+				exchange, err := getExchangeRate(currDesc)
+				if err != nil {
+					fmt.Printf("Cannot process the transfer on line %s", strconv.Itoa(currLnNo))
+					panic(err)
+				}
+
+				currTransfer.date = currDate
+				currTransfer.amount = max(debitAmount, creditAmount) // assumes transactions are either credit or debit
+				currTransfer.exchange = exchange
+				currTransfer.otherValue = max(debitAmount/exchange, creditAmount/exchange) // need to make this logic more elegant
+
+				transfers = append(transfers, currTransfer)
 			}
 
 		}
@@ -151,7 +190,15 @@ func process(currFile string) int {
 	}
 	fmt.Println("Processed ", currLnNo, "lines")
 	fmt.Println("=============================")
-	fmt.Println("TOTAL:", strconv.FormatFloat(runningTotal, 'f', 2, 64))
+	if len(transfers) > 0 {
+		fmt.Println("TRANSFERS:")
+		for _, t := range transfers {
+			fmt.Printf("%s %s %s @ %s\n", t.date.Format("2006-01-02"), fmt.Sprintf("%.2f", t.amount), fmt.Sprintf("%.2f", t.otherValue), fmt.Sprintf("%.2f", t.exchange))
+		}
+		fmt.Println()
+	}
+
+	fmt.Println("TOTAL FEES:", strconv.FormatFloat(runningTotal, 'f', 2, 64))
 	fmt.Println()
 
 	fmt.Print("Enter [c] to continue with new dates or enter any other key to exit: ")
@@ -178,13 +225,8 @@ func getindex(row []string, seek string) int {
 }
 
 func containsTransfer(desc string) bool {
-	for _, value := range feeList {
+	for _, value := range transferList {
 		if strings.Contains(desc, value) {
-			for _, value := range transferList {
-				if strings.Contains(desc, value) {
-					return false
-				}
-			}
 			return true
 		}
 	}
@@ -204,6 +246,10 @@ func containsFee(desc string) bool {
 		}
 	}
 	return false
+}
+
+func getExchangeRate(s string) (float64, error) {
+	return strconv.ParseFloat(strings.ReplaceAll(strings.Split(s, "tx ")[1][0:9], ` `, `.`), 64) // assumes "tx " followed by ten numbers indicating the exchange rate
 }
 
 func end() {

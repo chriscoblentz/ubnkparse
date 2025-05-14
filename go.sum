@@ -1,6 +1,8 @@
-github.com/go-ole/go-ole v1.2.4 h1:nNBDSCOigTSiarFpYE9J/KtEA1IOW4CNeqT9TQDqCxI=
-github.com/go-ole/go-ole v1.2.4/go.mod h1:XCwSNxSkXRo4vlyPy93sltvi/qJq0jqQhjqQNIwKuxM=
+github.com/go-ole/go-ole v1.3.0 h1:Dt6ye7+vXGIKZ7Xtk4s6/xVdGDQynvom7xCFEdWr6uE=
+github.com/go-ole/go-ole v1.3.0/go.mod h1:5LS6F96DhAwUc7C+1HLexzMXY1xGRSryjyPPKW6zv78=
 github.com/google/uuid v1.1.1 h1:Gkbcsh/GbpXz7lPftLA3P6TYMwjCLYm83jiFQZF/3gY=
 github.com/google/uuid v1.1.1/go.mod h1:TIyPZe4MgqvfeYDBFedMoGGpEw/LqOeaOT+nhxU+yHo=
-github.com/harry1453/go-common-file-dialog v1.2.0 h1:nGr9ZIpXrKb7IUY9Or6jqt4nuPEd/I+5sH1JPMsKhaM=
-github.com/harry1453/go-common-file-dialog v1.2.0/go.mod h1:3zwmbo7fy+uYGyaec74mu+Z9DPg0aEt10fSjjPwfyiY=
+github.com/harry1453/go-common-file-dialog v1.2.1-0.20250428222125-566edcc205d7 h1:KQdBfjq/iq/of5h0g9YPF9QAFxRkfcqLk4otk0EAY0Y=
+github.com/harry1453/go-common-file-dialog v1.2.1-0.20250428222125-566edcc205d7/go.mod h1:yuMaor/Ex34quikyEEGzW8nlcS+c1f01Rso6GL8kh9M=
+golang.org/x/sys v0.1.0 h1:kunALQeHf1/185U1i0GOB/fy1IPRDDpuoOOqRReG57U=
+golang.org/x/sys v0.1.0/go.mod h1:oPkhp1MJrh7nUepCBck5+mAzfO9JrbApNNgaTdGDITg=
